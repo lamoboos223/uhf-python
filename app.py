@@ -1,8 +1,6 @@
 import serial
 import binascii
-import time
 import re
-
 
 # Serial port configuration
 port = 'COM3'
@@ -21,23 +19,24 @@ ser = serial.Serial(
 )
 
 # Send the single polling instruction
-instruction = bytes.fromhex('AA 00 27 00 03 22 27 10 83 DD')  # Command frame for single polling instruction
-ser.write(instruction)
+# 0xA28 -> 26 dBm
+ser.write(bytes.fromhex('AA 00 B7 00 00 B7 DD')) # get transmittion power
+ser.write(bytes.fromhex('AA 00 B6 00 02 0A 28 8F DD')) # set transmittion power
+ser.write(bytes.fromhex('AA 00 27 00 03 22 27 10 83 DD')) # read tag
+counter = 1
 while True:
-    response = ser.read(1024)  # Adjust the buffer size (e.g., 1024) based on your requirements
+    response = ser.read(30)  # Adjust the buffer size to match the epc length when it's a successful reading
     # Extract the EPC value from the notification frame
     response_hex = binascii.hexlify(response).decode().upper()
     response_formatted = ' '.join(response_hex[i:i+2] for i in range(0, len(response_hex), 2))
-
-    if "AA 02" in response_formatted:
+    if(response_formatted.startswith("AA 02")):
         match = re.search(pattern, response_formatted)
         if match:
             extracted_string = match.group(0)
-            print(f"full frame: {extracted_string}")
+            # print(f"full frame: {extracted_string}")
             match2 = re.search(epc_pattern, extracted_string)
             if match2:
-                extracted_string = match2.group(0)
-                print(f"tag: {extracted_string}")
-    else:
-        print("No tag found or invalid response.")
-    time.sleep(1)
+                epc = match2.group(0)
+                print(f"Counter: {counter}\tEPC: {epc}")
+                counter = counter + 1
+
